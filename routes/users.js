@@ -44,10 +44,10 @@ router.post('/login', function (req, res) {
     var user = _.find(users, { username: req.body.username });
 
     if(!user)
-        res.status(404).send("Account not found");
+        res.status(404).send("Username not found");
 
     if(!(user.password === req.body.password))
-        res.status(401).send("Incorrect Password");
+        res.status(401).send("Wrong password");
 
     res.status(200).send({ token: generateJWT(user) });
 });
