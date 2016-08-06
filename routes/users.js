@@ -1,55 +1,43 @@
 var express = require('express');
 var router = express.Router();
-var config = require('../config.json');
-var jwt = require('jsonwebtoken');
+var mongoose = require('mongoose');
+var User = mongoose.model('User');
 var _ = require('lodash');
 
-var users = [{
-    id: 1,
-    username: 'aadil',
-    password: 'aadil'
-}];
-
-function generateJWT(user) {
-    var expiry = new Date();
-    expiry.setDate(expiry.getDate() + 7);
-    return jwt.sign({
-        id: user.id,
-        exp: parseInt(expiry.getTime() / 1000)
-    }, config.secret);
-}
-
 router.get('/signup/namecheck', function (req, res) {
-    if(_.find(users, { username: req.query.username }))
-        res.status(409).send("A user with given name already exists");
-    else
-        res.status(200).send("No Conflict");
+
+    User.findOne({ 'username': req.query.username }, function(err, user) {
+        if(!user)
+            res.status(200).send("No conflict");
+        else
+            res.status(409).send("A user with given name already exists");
+    });
 });
 
 router.post('/signup', function (req, res) {
-    var profile = {
-        id: _.maxBy(users, 'id').id + 1,
-        username: req.body.username,
-        password: req.body.password
-    };
+    var user = new User();
+    user.username = req.body.username;
+    user.password = req.body.password;
 
-    users.push(profile);
-
-    res.status(201).send({
-        token: generateJWT(profile)
+    user.save(function(err) {
+        if(err)
+            res.status(403).send("Signup error, try again later!");
+        
+        res.status(201).send({
+            token: user.generateJWT()
+        });
     });
 });
 
 router.post('/login', function (req, res) {
-    var user = _.find(users, { username: req.body.username });
-
-    if(!user)
-        res.status(404).send("Username not found");
-
-    if(!(user.password === req.body.password))
-        res.status(401).send("Wrong password");
-
-    res.status(200).send({ token: generateJWT(user) });
+    User.findOne({ 'username': req.body.username }, function(err, user) {
+        if(!user)
+            res.status(404).send("Username not found");
+        else if(!(user.password === req.body.password))
+            res.status(401).send("Wrong password");
+        else
+            res.status(200).send({ token: user.generateJWT() });
+    });
 });
 
 module.exports = router;

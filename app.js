@@ -4,10 +4,18 @@ var errorhandler = require('errorhandler');
 var dotenv = require('dotenv');
 var express = require('express');
 var bodyParser = require('body-parser');
+var mongoose = require('mongoose');
+var dbconfig = require('./dbconfig');
 var _ = require('lodash');
 var app = express();
 
 dotenv.load();
+
+mongoose.connect(dbconfig.DB_URL);
+dbconfig.dbconnection(mongoose);
+
+require('./models/Users');
+require('./models/Courses');
 
 var corsOptions = {
   origin: 'http://localhost:3000'
