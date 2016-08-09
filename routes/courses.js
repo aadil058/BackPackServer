@@ -7,6 +7,7 @@ var User = mongoose.model('User');
 var Promise = require('bluebird');
 var Mongoose = Promise.promisifyAll(require('mongoose'));
 var config = require('../config.json');
+var _ = require('lodash');
 
 var auth = jwt({
     secret: config.secret
@@ -21,6 +22,24 @@ router.post('/add', auth, function(req, res) {
             course.save(function(err, course) {
                 user.courses.push(course);
                 user.save(function (err, user) {
+                    user.populate('courses', function(err, data) {
+                        res.status(200).send(data.courses);
+                    });
+                });
+            });
+        });
+    });
+});
+
+router.delete('/leave', auth, function(req, res) {
+    Course.findById(req.query.courseId, function(err, course) {
+        var index = course.users.indexOf(req.user.id);
+        course.users.splice(index, 1);
+        course.save(function(err, course) {
+            User.findById(req.user.id, function(err, user) {
+                index = user.courses.indexOf(course._id);
+                user.courses.splice(index, 1);
+                user.save(function(err, user) {
                     user.populate('courses', function(err, data) {
                         res.status(200).send(data.courses);
                     });
