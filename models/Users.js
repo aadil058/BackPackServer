@@ -2,6 +2,7 @@ var mongoose = require('mongoose');
 var jwt = require('jsonwebtoken');
 var config = require('../config.json');
 var Schema = mongoose.Schema;
+var Promise = require('bluebird');
 
 // currently i haven't used any encryption for password (can be done easily using node modules like bcrypt)
 var UserSchema = Schema({
@@ -21,4 +22,3 @@ UserSchema.methods.generateJWT = function() {
 };
 
 mongoose.model('User', UserSchema);
-

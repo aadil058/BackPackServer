@@ -8,4 +8,3 @@ var CourseSchema = Schema({
 });
 
 mongoose.model('Course', CourseSchema);
-
