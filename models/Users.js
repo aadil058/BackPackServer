@@ -2,11 +2,10 @@ var mongoose = require('mongoose');
 var jwt = require('jsonwebtoken');
 var config = require('../config.json');
 var Schema = mongoose.Schema;
-var Promise = require('bluebird');
 
 // currently i haven't used any encryption for password (can be done easily using node modules like bcrypt)
 var UserSchema = Schema({
-    username: { type: String, required: true },
+    username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     courses: [{ type: Schema.Types.ObjectId, ref: 'Course' }]   // All courses to which a user is registered
 });
