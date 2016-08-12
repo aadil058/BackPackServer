@@ -4,11 +4,22 @@
 // http://stackoverflow.com/questions/26076511/handling-multiple-catches-in-promise-chain
 
 // error codes and corresponding error
-// 101 - User not found in our database
-// 102 - Course not found in our database
-// 103 - Error saving user
-// 104 - Error saving course
-// 105 - Error populating courses data
+// 101, 102, 106, 107 may also be caused due to lost connection with database
+// 101 (add POST) - User not found in our database
+// 102 (add POST) - Course not found in our database
+// 103 (add POST) - Error saving user
+// 104 (add POST) - Error saving course
+// 105 (add POST) - Error populating courses data
+// 106 (leave DELETE) - User not found in our database
+// 107 (leave DELETE) - Course not found in our database
+// 108 (leave DELETE) - Error saving user
+// 109 (leave DELETE) - Error saving course
+// 110 (leave DELETE) - Error populating courses data
+// 111 (enrolled GET) - Error populating data
+// 112 (all - GET) - Error fetching all courses
+// 113 (all - POST) - Error saving course
+
+// TODO: Remove duplicates from database (user and course) every time before saving user or course
 
 var express = require('express');
 var router = express.Router();
@@ -29,7 +40,7 @@ var auth = jwt({
 
 router.post('/add', auth, function(req, res) {
 
-    Promise.all([ User.findById(req.user.id).exec(), Course.findById(req.body.courseId).exec()])
+    Promise.all([User.findById(req.user.id).exec(), Course.findById(req.body.courseId).exec()])
         .spread(function(user, course) {
             if(user === null) throw error(101);
             user.courses.push(course);
@@ -38,7 +49,7 @@ router.post('/add', auth, function(req, res) {
             course.users.push(user);
 
             return Promise.all([user.save(), course.save()]);
-            // can be replaced with 'return [user.save(), course.save()]' Or we can save user and course inside different then methods as well
+            // can be replaced with 'return [user.save(), course.save()]' Or we can save user & course inside different then methods as well
         })
         .spread(function(user, course) {
             if(user === null)  throw error(103);
@@ -60,52 +71,67 @@ function error(errorCode) {
     return err;
 }
 
+
 router.delete('/leave', auth, function(req, res) {
-    Course.findById(req.query.courseId, function(err, course) {
-        var index = course.users.indexOf(req.user.id);
-        course.users.splice(index, 1);
-        course.save(function(err, course) {
-            User.findById(req.user.id, function(err, user) {
-                index = user.courses.indexOf(course._id);
-                user.courses.splice(index, 1);
-                user.save(function(err, user) {
-                    user.populate('courses', function(err, data) {
-                        res.status(200).send(data.courses);
-                    });
-                });
-            });
+
+    // Course.findById(...).exec().then().then()... will also work
+
+    Promise.all([User.findById(req.user.id).exec(), Course.findById(req.query.courseId).exec()])
+        .spread(function(user, course) {
+            if(user === null)  throw error(106);
+            if(course === null) throw error(107);
+            user.courses.splice(user.courses.indexOf(course._id), 1);
+            course.users.splice(course.users.indexOf(user._id), 1);
+            return Promise.all([user.save(), course.save()]);
+        })
+        .spread(function(user, course) {
+            if(user === null)  throw error(108);
+            if(course === null) throw error(109);
+            return User.findById(user._id).populate('courses').exec();
+        })
+        .then(function (data) {
+            if(data === null)  throw error(110);
+            res.status(200).send(data.courses);
+        })
+        .catch(function (err) {
+            console.log(err);
         });
-    });
 });
 
 router.get('/enrolled', auth, function(req, res) {
-    User.findById(req.user.id, function(err, user) {
-       user.populate('courses', function (err, data) {
-           res.status(200).send(data.courses);
-       });
-    });
+    User.findById(req.user.id).populate('courses').exec()
+        .then(function(data) {
+            if(data === null)  throw err(111);
+            res.status(200).send(data.courses);
+        })
+        .catch(function(err) {
+            console.log(err);
+        });
 });
 
 router.get('/all', auth, function(req, res) {
-    Course.find({}, function(err, courses) {
-        if(!courses)
-            res.status(404).send("Can't find any course at this time, please try again");
-        else
-            res.status(200).send({ courses: courses });
-    });
+    Course.find({}).exec()
+        .then(function(courses) {
+            if(courses === null) throw error(112);
+            res.status(200).send({ courses: courses })
+        })
+        .catch(function(err) {
+           console.log(err);
+        });
 });
 
-// currently i made this API endpoint public as currently their is no feature at client side of our app from which we can register a new course
 router.post('/all', function(req, res) {
     var course = new Course();
     course.title = req.body.title;
     course.instructor = req.body.instructor;
-    course.save(function(err, course) {
-        if(err)
-            res.status(403).send("Unable to register course, please try again");
-        else
+    course.save()
+        .then(function(course) {
+            if(course === null) throw error(113);
             res.status(201).send("Successfully created");
-    });
+        })
+        .catch(function(err) {
+            console.log(err);
+        });
 });
 
 module.exports = router;
